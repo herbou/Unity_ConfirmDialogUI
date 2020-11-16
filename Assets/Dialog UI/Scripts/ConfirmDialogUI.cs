@@ -3,29 +3,18 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.Events;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace EasyUI.Dialogs {
 
-	[System.Serializable]
-	public enum DialogButtonColor {
-		Black,
-		Purple,
-		Magenta,
-		Blue,
-		Green,
-		Yellow,
-		Orange,
-		Red,
-		Gray
-	}
-
-
 	public class ConfirmDialogUI : MonoBehaviour {
+
 		// UI references ------------------------------------------------
 		[SerializeField] GameObject uiCanvas;
 		[SerializeField] Button uiCloseButton;
 		[SerializeField] TextMeshProUGUI uiTitleText;
 		[SerializeField] TextMeshProUGUI uiMessageText;
+		[SerializeField] GameObject uiButtonsParent;
 		[SerializeField] Button uiNegativeButton;
 		[SerializeField] Button uiPositiveButton;
 
@@ -41,21 +30,14 @@ namespace EasyUI.Dialogs {
 		[Space ( 20f )]
 		[Header ( "Dialog's defaults:" )]
 		[SerializeField] int maxMessageLetters = 300;
+		[SerializeField] bool _defaultHasButtons = true;
 		[SerializeField] string _defaultNegativeButtonText = "no";
 		[SerializeField] string _defaultPositiveButtonText = "yes";
 		[SerializeField] DialogButtonColor _defaultButtonsColor = DialogButtonColor.Black;
-		[SerializeField] float _defaultFadeDuration = .3f;
+		[SerializeField] float _defaultFadeDuration = .15f;
 
-		string Title;
-		string Message;
-		string NegativeButtonText;
-		string PositiveButtonText;
-		DialogButtonColor ButtonsColor;
-		float FadeDuration;
-		UnityAction CloseButtonClickAction = null;
-		UnityAction NegativeButtonClickAction = null;
-		UnityAction PositiveButtonClickAction = null;
-
+		Queue<Dialog> dialogsQueue = new Queue<Dialog> ( );
+		Dialog dialog, tempDialog;
 
 		[Space ( 20f )]
 		[SerializeField] Color[] dialogButtonColors;
@@ -87,47 +69,52 @@ namespace EasyUI.Dialogs {
 		//---------------------------------------------------------------------------
 
 		public ConfirmDialogUI SetTitle ( string title ) {
-			this.Title = title;
+			dialog.Title = title;
 			return Instance;
 		}
 
 		public ConfirmDialogUI SetMessage ( string message ) {
-			this.Message = message;
+			dialog.Message = message;
 			return Instance;
 		}
 
-		public ConfirmDialogUI SetButtonsColor ( DialogButtonColor color ) {
-			this.ButtonsColor = color;
+		public ConfirmDialogUI SetButtonsVisibility ( bool visibility = true ) {
+			dialog.HasButtons = visibility;
 			return Instance;
 		}
 
-		public ConfirmDialogUI SetNegativeButtonText ( string text ) {
-			this.NegativeButtonText = text;
+		public ConfirmDialogUI SetButtonsColor ( DialogButtonColor color = DialogButtonColor.Black ) {
+			dialog.ButtonsColor = color;
 			return Instance;
 		}
 
-		public ConfirmDialogUI SetPositiveButtonText ( string text ) {
-			this.PositiveButtonText = text;
+		public ConfirmDialogUI SetNegativeButtonText ( string text = "no" ) {
+			dialog.NegativeButtonText = text;
 			return Instance;
 		}
 
-		public ConfirmDialogUI SetFadeDuration ( float duration ) {
-			this.FadeDuration = duration;
+		public ConfirmDialogUI SetPositiveButtonText ( string text = "yes" ) {
+			dialog.PositiveButtonText = text;
+			return Instance;
+		}
+
+		public ConfirmDialogUI SetFadeDuration ( float duration = .15f ) {
+			dialog.FadeDuration = duration;
 			return Instance;
 		}
 
 		public ConfirmDialogUI OnCloseButtonClicked ( UnityAction action ) {
-			this.CloseButtonClickAction = action;
+			dialog.CloseButtonClickAction = action;
 			return Instance;
 		}
 
 		public ConfirmDialogUI OnNegativeButtonClicked ( UnityAction action ) {
-			this.NegativeButtonClickAction = action;
+			dialog.NegativeButtonClickAction = action;
 			return Instance;
 		}
 
 		public ConfirmDialogUI OnPositiveButtonClicked ( UnityAction action ) {
-			this.PositiveButtonClickAction = action;
+			dialog.PositiveButtonClickAction = action;
 			return Instance;
 		}
 
@@ -136,118 +123,119 @@ namespace EasyUI.Dialogs {
 
 
 		public void Show ( ) {
-			if ( IsActive ) {
-				Debug.LogWarning ( "[DialogUI] You can't show more than one Dialog at the same time!" );
-				return;
-			}
+			dialogsQueue.Enqueue ( dialog );
+			ResetDialog ( );
 
-			if ( string.IsNullOrEmpty ( this.Message ) ) {
-				Debug.LogError ( "[DialogUI] Dialog's message text is not set. use <b>SetMessage(...)</b>" );
-				return;
-			}
-
-			FillDialogUI ( );
-
-			IsActive = true;
-			uiCanvas.SetActive ( IsActive );
-			StartCoroutine ( FadeIn ( this.FadeDuration ) );
+			if ( !IsActive )
+				FillDialogAndShow ( );
 		}
 
-		void FillDialogUI ( ) {
-			uiTitleText.text = this.Title;
-			uiMessageText.text = (this.Message.Length > maxMessageLetters) ? this.Message.Substring ( 0, maxMessageLetters - 3 ) + "..." : this.Message;
-			uiNegativeButtonText.text = this.NegativeButtonText;
-			uiPositiveButtonText.text = this.PositiveButtonText;
-			Color transparentColor = dialogButtonColors [ ( int )this.ButtonsColor ];
+		void FillDialogAndShow ( ) {
+			tempDialog = dialogsQueue.Dequeue ( );
+
+			// Data validation
+			if ( string.IsNullOrEmpty ( tempDialog.Message.Trim ( ) ) ) {
+				Debug.LogError ( "[DialogUI] Dialog's text can't be empty... use <b>.SetMessage(...)</b>" );
+				return;
+			}
+
+			uiTitleText.text = tempDialog.Title;
+
+			//trim text
+			if ( tempDialog.Message.Length > maxMessageLetters )
+				uiMessageText.text = tempDialog.Message.Substring ( 0, maxMessageLetters - 3 ) + "...";
+			else
+				uiMessageText.text = tempDialog.Message;
+
+			uiButtonsParent.SetActive ( tempDialog.HasButtons );
+
+			uiNegativeButtonText.text = tempDialog.NegativeButtonText;
+			uiPositiveButtonText.text = tempDialog.PositiveButtonText;
+
+			Color transparentColor = dialogButtonColors [ ( int )tempDialog.ButtonsColor ];
 			transparentColor.a = .12f;
 			uiNegativeButtonImage.color = transparentColor;
-			uiPositiveButtonImage.color = dialogButtonColors [ ( int )this.ButtonsColor ];
+			uiPositiveButtonImage.color = dialogButtonColors [ ( int )tempDialog.ButtonsColor ];
+
+			IsActive = true;
+			uiCanvas.SetActive ( true );
+			StartCoroutine ( FadeIn ( tempDialog.FadeDuration ) );
 		}
 
 		public void Hide ( ) {
+			uiCloseButton.onClick.RemoveAllListeners ( );
+			uiNegativeButton.onClick.RemoveAllListeners ( );
+			uiPositiveButton.onClick.RemoveAllListeners ( );
+
 			IsActive = false;
-
 			StopAllCoroutines ( );
-			StartCoroutine ( FadeOut ( this.FadeDuration ) );
-
-			uiCloseButton.onClick.RemoveListener ( OnCloseButtonClicked );
-			uiNegativeButton.onClick.RemoveListener ( OnNegativeButtonClicked );
-			uiPositiveButton.onClick.RemoveListener ( OnPositiveButtonClicked );
-
-			ResetDialog ( );
+			StartCoroutine ( FadeOut ( tempDialog.FadeDuration ) );
 		}
 
 		void ResetDialog ( ) {
-			this.Title = null;
-			this.Message = null;
-			this.FadeDuration = _defaultFadeDuration;
-			this.ButtonsColor = _defaultButtonsColor;
-			this.PositiveButtonText = _defaultPositiveButtonText;
-			this.NegativeButtonText = _defaultNegativeButtonText;
+			dialog = new Dialog ( );
 
-			CloseButtonClickAction = null;
-			NegativeButtonClickAction = null;
-			PositiveButtonClickAction = null;
+			dialog.FadeDuration = _defaultFadeDuration;
+			dialog.HasButtons = _defaultHasButtons;
+			dialog.ButtonsColor = _defaultButtonsColor;
+			dialog.PositiveButtonText = _defaultPositiveButtonText;
+			dialog.NegativeButtonText = _defaultNegativeButtonText;
 		}
 
 
 		//---------------------------------------------------------------------------
 
-
-		void OnCloseButtonClicked ( ) {
-			if ( this.CloseButtonClickAction != null )
-				this.CloseButtonClickAction.Invoke ( );
-
-			Hide ( );
-		}
-
-		void OnNegativeButtonClicked ( ) {
-			if ( this.NegativeButtonClickAction != null )
-				this.NegativeButtonClickAction.Invoke ( );
+		void InvokeEventAndHideDialog ( UnityAction action ) {
+			if ( action != null )
+				action.Invoke ( );
 
 			Hide ( );
 		}
-
-		void OnPositiveButtonClicked ( ) {
-			if ( this.PositiveButtonClickAction != null )
-				this.PositiveButtonClickAction.Invoke ( );
-
-			Hide ( );
-		}
-
 
 		//---------------------------------------------------------------------------
+		IEnumerator Fade ( CanvasGroup cGroup, float startAlpha, float endAlpha, float duration ) {
+			if ( startAlpha == endAlpha ) {
+				Debug.LogError ( "Fade() : startAlpha must be different than endAlpha" );
+				yield break;
+			}
+
+			float startTime = Time.time;
+			float alpha = startAlpha;
+
+			if ( duration > 0f ) {
+				//Anim start
+				while ( alpha != endAlpha ) {
+					alpha = Mathf.Lerp ( startAlpha, endAlpha, (Time.time - startTime) / duration );
+					cGroup.alpha = alpha;
+
+					yield return null;
+				}
+
+			} else
+				cGroup.alpha = endAlpha;
+
+			yield break;
+		}
 
 		IEnumerator FadeIn ( float duration ) {
-			float startTime = Time.time;
-			float alpha = 0f;
+			// Anim start
+			yield return Fade ( uiCanvasGroup, 0f, 1f, duration );
 
-			//Anim start
-			while ( alpha < 1f ) {
-				alpha = Mathf.Lerp ( 0f, 1f, (Time.time - startTime) / duration );
-				uiCanvasGroup.alpha = alpha;
-
-				yield return null;
-			}
-			//Anim end
-			uiCloseButton.onClick.AddListener ( OnCloseButtonClicked );
-			uiNegativeButton.onClick.AddListener ( OnNegativeButtonClicked );
-			uiPositiveButton.onClick.AddListener ( OnPositiveButtonClicked );
+			// Anim end
+			uiCloseButton.onClick.AddListener ( ( ) => InvokeEventAndHideDialog ( tempDialog.CloseButtonClickAction ) );
+			uiNegativeButton.onClick.AddListener ( ( ) => InvokeEventAndHideDialog ( tempDialog.NegativeButtonClickAction ) );
+			uiPositiveButton.onClick.AddListener ( ( ) => InvokeEventAndHideDialog ( tempDialog.PositiveButtonClickAction ) );
 		}
 
 		IEnumerator FadeOut ( float duration ) {
-			float startTime = Time.time;
-			float alpha = 1f;
+			// Anim start
+			yield return Fade ( uiCanvasGroup, 1f, 0f, duration );
 
-			//Anim start
-			while ( alpha > 0f ) {
-				alpha = Mathf.Lerp ( 1f, 0f, (Time.time - startTime) / duration );
-				uiCanvasGroup.alpha = alpha;
-
-				yield return null;
-			}
 			//Anim end
-			uiCanvas.SetActive ( IsActive );
+			if ( dialogsQueue.Count != 0 )
+				FillDialogAndShow ( );
+			else
+				uiCanvas.SetActive ( false );
 		}
 
 	}

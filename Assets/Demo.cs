@@ -7,66 +7,66 @@ public class Demo : MonoBehaviour {
 	[SerializeField] Button showMessageButton;
 
 	[Multiline]
-	[SerializeField] string messageText;
+	[SerializeField] string longText;
 
 	void Start ( ) {
 
 		showMessageButton.onClick.RemoveAllListeners ( );
-		showMessageButton.onClick.AddListener ( ( ) => 
+		showMessageButton.onClick.AddListener ( ( ) => {
+
+			//Dialog 1 --------------------------------------------------------------------
 			ConfirmDialogUI.Instance
-			.SetTitle ( "Message" )
-			.SetMessage ( messageText )
+			.SetTitle ( "Message 1" )
+			.SetMessage ( longText )
+			.SetButtonsColor ( DialogButtonColor.Yellow )
+			.SetFadeDuration ( .6f )
+			.OnPositiveButtonClicked ( ( ) => Debug.Log ( "Message1 closed" ) )
+			.Show ( );
 
-			.SetFadeDuration ( .5f )
 
-			.SetNegativeButtonText ( "Non" )
-			.OnNegativeButtonClicked ( ( ) => Debug.Log ( "[Non] is clicked" ))
+			//Dialog 2 --------------------------------------------------------------------
+			ConfirmDialogUI.Instance
+			.SetTitle ( "Message 2" )
+			.SetMessage ( "Hello world" )
+			.SetButtonsVisibility ( false )
+			.OnCloseButtonClicked ( delegate {
+				Debug.Log ( "[NO BUTTONS]  Message closed" );
+			} )
+			.Show ( );
 
-			.SetPositiveButtonText ( "Oui" )
-			.OnPositiveButtonClicked ( ( ) => Debug.Log ( "[Oui] is clicked" ))
 
-			.OnCloseButtonClicked ( ( ) => Debug.Log ( "[x] is clicked" ) )
+			//Dialog 3 --------------------------------------------------------------------
+			ConfirmDialogUI.Instance
+			.SetTitle ( "Message 3" )
+			.SetMessage ( "End message" )
+			.SetButtonsColor ( DialogButtonColor.Green )
+			.SetPositiveButtonText ( "Cancel" )
+			.SetNegativeButtonText ( "Yes" )
+			.SetFadeDuration ( 0f )
+			.OnPositiveButtonClicked ( ( ) => {
+				Debug.Log ( "Message3 closed" );
+			} )
+			.Show ( );
 
+
+			//Dialog 4 --------------------------------------------------------------------
+			ConfirmDialogUI.Instance
+			.SetTitle ( "Message 4" )
+			.SetMessage ( longText )
+			.SetButtonsColor ( DialogButtonColor.Blue )
+			.SetFadeDuration ( 0f )
+			.Show ( );
+
+
+			//Dialog 5 --------------------------------------------------------------------
+			ConfirmDialogUI.Instance
+			.SetTitle ( "Message 5" )
+			.SetMessage ( "Hello this is the last dialog" )
 			.SetButtonsColor ( DialogButtonColor.Magenta )
+			.SetFadeDuration ( .6f )
+			.Show ( );
 
-			.Show ( )
-		);
-
-
-		/* Different ways to add events (Functions, Delegates , or the Lambda Expression => ) :
-
-			1 : Functions ---------------------------------------------------------------
-			.OnPositiveButtonClicked ( PositiveButtonClick )
-			where PositiveButtonClick is a function defined in your script :
-
-			void PositiveButtonClick(){
-				//code here ;
-				Debug.Log ( "Positive button is clicked" );
-			}
-
-
-			2 : Delegates ---------------------------------------------------------------
-			.OnPositiveButtonClicked ( delegate {
-				//code here ;
-				Debug.Log ( "Positive button is clicked" );
-			} )
-
-
-			3.1 : Lambda Expression (Multiline) -------------------------------------------
-			.OnPositiveButtonClicked ( () => {
-				//code here ;
-				Debug.Log ( "Positive button is clicked" );
-			} )
-
-
-			3.2 : Lambda Expression (One line) -------------------------------------------
-			.OnPositiveButtonClicked ( () => Debug.Log ( "Positive button is clicked" ) )
-
-			//no need for ';'
-
-
-
-		*/
+		} );
 
 	}
 
